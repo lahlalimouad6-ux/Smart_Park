@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Parking, ParkingSpot, Zone } from '@/types';
@@ -51,10 +51,10 @@ function Modal({ open, title, onClose, children }: { open: boolean; title: strin
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100">
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-600 font-bold">
+      <div className="w-full max-w-lg sp-ticket">
+        <div className="p-5 border-b-2 border-[rgba(11,18,32,0.16)] flex items-center justify-between">
+          <h3 className="text-lg font-extrabold text-slate-900">{title}</h3>
+          <button onClick={onClose} className="sp-btn">
             Fermer
           </button>
         </div>
@@ -100,6 +100,7 @@ export default function AdminDashboard() {
     tarifHeure: 0
   });
   const [nombrePlaces, setNombrePlaces] = useState(20);
+  const [editingSpotsCount, setEditingSpotsCount] = useState<number | null>(null);
 
   const [zoneModalOpen, setZoneModalOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
@@ -141,7 +142,7 @@ export default function AdminDashboard() {
       });
   }, [authChecked, router]);
 
-  const fetchParkingsAndStats = async () => {
+  const fetchParkingsAndStats = useCallback(async () => {
     try {
       setLoading(true);
       const [parkingsRes, statsRes] = await Promise.all([
@@ -179,7 +180,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   const fetchZones = async (parkingId: number) => {
     try {
@@ -195,12 +196,13 @@ export default function AdminDashboard() {
     setTimeout(() => {
       void fetchParkingsAndStats();
     }, 0);
-  }, [authChecked]);
+  }, [authChecked, fetchParkingsAndStats]);
 
   const openCreateParking = () => {
     setEditingParking(null);
     setParkingForm({ nom: '', ville: '', adresse: '', coordGps: '', tarifHeure: 0 });
     setNombrePlaces(20);
+    setEditingSpotsCount(null);
     setParkingModalOpen(true);
   };
 
@@ -213,6 +215,21 @@ export default function AdminDashboard() {
       coordGps: p.coordGps,
       tarifHeure: p.tarifHeure
     });
+    setEditingSpotsCount(null);
+    setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await api.get(`/parkings/${p.id}/zones`);
+          const nextZones = Array.isArray(res.data) ? (res.data as Array<{ spots?: Array<unknown> }>) : [];
+          const count = nextZones.reduce((acc, z) => acc + (Array.isArray(z.spots) ? z.spots.length : 0), 0);
+          const safe = Math.max(0, Number.isFinite(count) ? count : 0);
+          setEditingSpotsCount(safe);
+          if (safe > 0) setNombrePlaces(safe);
+        } catch {
+          setEditingSpotsCount(null);
+        }
+      })();
+    }, 0);
     setParkingModalOpen(true);
   };
 
@@ -220,7 +237,55 @@ export default function AdminDashboard() {
     e.preventDefault();
     try {
       if (editingParking) {
+        const desiredPlaces =
+          typeof editingSpotsCount === 'number' ? Math.max(nombrePlaces, editingSpotsCount) : nombrePlaces;
+        if (typeof editingSpotsCount === 'number' && desiredPlaces !== nombrePlaces) {
+          setNombrePlaces(desiredPlaces);
+        }
+
         await api.put(`/parkings/${editingParking.id}`, parkingForm);
+
+        if (typeof editingSpotsCount === 'number' && desiredPlaces > editingSpotsCount) {
+          const parkingId = editingParking.id;
+          const res = await api.get(`/parkings/${parkingId}/zones`);
+          const nextZones = Array.isArray(res.data) ? (res.data as Array<{ id: number; nomZone: string; spots?: Array<{ numeroPlace?: string }> }>) : [];
+
+          let targetZoneId: number | null = nextZones[0]?.id ?? null;
+          if (!targetZoneId) {
+            const created = await api.post(`/parkings/${parkingId}/zones`, { nomZone: 'Zone A' });
+            targetZoneId = created.data?.id ?? null;
+          }
+          if (!targetZoneId) {
+            throw new Error('Zone introuvable');
+          }
+
+          const allSpots = nextZones.flatMap((z) => (Array.isArray(z.spots) ? z.spots : []));
+          const maxIndex = allSpots.reduce((acc, s) => {
+            const raw = (s?.numeroPlace || '').toString();
+            const m = raw.match(/(\d+)/);
+            const n = m ? Number(m[1]) : NaN;
+            return Number.isFinite(n) ? Math.max(acc, n) : acc;
+          }, 0);
+
+          const cols = 8;
+          const spacing = 60;
+          const delta = desiredPlaces - editingSpotsCount;
+
+          for (let i = 1; i <= delta; i++) {
+            const n = maxIndex + i;
+            const numeroPlace = `A${String(n).padStart(2, '0')}`;
+            const indexFrom0 = (editingSpotsCount + i - 1);
+            const coordX = (indexFrom0 % cols) * spacing;
+            const coordY = Math.floor(indexFrom0 / cols) * spacing;
+            await api.post(`/parkings/zones/${targetZoneId}/spots`, {
+              numeroPlace,
+              type: 'STANDARD',
+              coordX,
+              coordY,
+              statut: 'LIBRE'
+            });
+          }
+        }
       } else {
         await api.post('/parkings', { ...parkingForm, nombrePlaces });
       }
@@ -353,38 +418,50 @@ export default function AdminDashboard() {
     return `${value.toFixed(1)}%`;
   }, [stats.occupationRate]);
 
-  if (!authChecked) return <div className="p-8 text-center">Chargement...</div>;
-  if (loading) return <div className="p-8 text-center">Chargement du dashboard...</div>;
+  if (!authChecked) {
+    return (
+      <div className="sp-container py-10">
+        <div className="sp-card p-10 text-center text-slate-600">Chargement...</div>
+      </div>
+    );
+  }
+  if (loading) {
+    return (
+      <div className="sp-container py-10">
+        <div className="sp-card p-10 text-center text-slate-600">Chargement du dashboard...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="sp-container py-10">
       {!selectedParking ? (
         <>
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard Admin</h1>
-              <p className="text-gray-500">Gestion globale de la plateforme SmartPark</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Dashboard Admin</h1>
+              <p className="text-slate-600">Gestion globale de la plateforme SmartPark</p>
             </div>
-            <button onClick={openCreateParking} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg transition">
+            <button onClick={openCreateParking} className="sp-btn sp-btn-primary">
               <Plus className="h-5 w-5 mr-2" /> Nouveau Parking
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-            <StatCard icon={<MapPin className="text-blue-600" />} label="Parkings" value={stats.totalParkings} bgColor="bg-blue-100" />
-            <StatCard icon={<CheckCircle2 className="text-green-600" />} label="Occupation" value={occupationLabel} bgColor="bg-green-100" />
-            <StatCard icon={<CheckCircle2 className="text-purple-600" />} label="Revenus" value={`${stats.totalRevenue.toFixed(2)} €`} bgColor="bg-purple-100" />
-            <StatCard icon={<Clock className="text-orange-600" />} label="Réservations actives" value={stats.activeReservations} bgColor="bg-orange-100" />
+            <StatCard icon={<MapPin className="h-5 w-5" />} label="Parkings" value={stats.totalParkings} tone="blue" />
+            <StatCard icon={<CheckCircle2 className="h-5 w-5" />} label="Occupation" value={occupationLabel} tone="green" />
+            <StatCard icon={<CheckCircle2 className="h-5 w-5" />} label="Revenus" value={`${stats.totalRevenue.toFixed(2)} €`} tone="violet" />
+            <StatCard icon={<Clock className="h-5 w-5" />} label="Réservations actives" value={stats.activeReservations} tone="amber" />
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Liste des Parkings</h2>
-              <div className="text-sm text-gray-400">Total : {parkings.length} parkings</div>
+          <div className="sp-ticket">
+            <div className="p-6 border-b-2 border-[rgba(11,18,32,0.16)] flex justify-between items-center">
+              <h2 className="text-xl font-extrabold text-slate-900">Liste des Parkings</h2>
+              <div className="text-sm text-slate-600">Total : {parkings.length} parkings</div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">
+              <table className="sp-table text-left">
+                <thead>
                   <tr>
                     <th className="px-6 py-4">Nom</th>
                     <th className="px-6 py-4">Ville</th>
@@ -392,22 +469,22 @@ export default function AdminDashboard() {
                     <th className="px-6 py-4">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {parkings.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50 transition">
+                    <tr key={p.id}>
                       <td className="px-6 py-4 font-bold text-gray-900">
-                        <button onClick={() => selectParking(p)} className="hover:text-blue-600 transition-colors">
+                        <button onClick={() => selectParking(p)} className="hover:text-blue-700 transition-colors font-extrabold text-slate-900">
                           {p.nom}
                         </button>
                       </td>
-                      <td className="px-6 py-4 text-gray-600">{p.ville}</td>
-                      <td className="px-6 py-4 text-blue-600 font-bold">{p.tarifHeure}</td>
+                      <td className="px-6 py-4 text-slate-700">{p.ville}</td>
+                      <td className="px-6 py-4 text-blue-700 font-extrabold">{p.tarifHeure}</td>
                       <td className="px-6 py-4">
                         <div className="flex space-x-2">
-                          <button onClick={() => openEditParking(p)} className="p-2 text-gray-400 hover:text-blue-600 transition">
+                          <button onClick={() => openEditParking(p)} className="sp-btn h-10 px-3">
                             <Edit className="h-4 w-4" />
                           </button>
-                          <button onClick={() => deleteParking(p.id)} className="p-2 text-gray-400 hover:text-red-600 transition">
+                          <button onClick={() => deleteParking(p.id)} className="sp-btn sp-btn-danger h-10 px-3">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -430,36 +507,36 @@ export default function AdminDashboard() {
         <>
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-3">
-              <button onClick={() => { setSelectedParking(null); setZones([]); }} className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-gray-200 transition">
-                <ArrowLeft className="h-5 w-5 text-gray-700" />
+              <button onClick={() => { setSelectedParking(null); setZones([]); }} className="sp-btn">
+                <ArrowLeft className="h-5 w-5" />
               </button>
               <div>
-                <h1 className="text-2xl font-extrabold text-gray-900">{selectedParking.nom}</h1>
-                <p className="text-gray-500">{selectedParking.adresse} • {selectedParking.ville}</p>
+                <h1 className="text-2xl font-extrabold text-slate-900">{selectedParking.nom}</h1>
+                <p className="text-slate-600">{selectedParking.adresse} • {selectedParking.ville}</p>
               </div>
             </div>
-            <button onClick={openCreateZone} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg transition">
+            <button onClick={openCreateZone} className="sp-btn sp-btn-primary">
               <Plus className="h-5 w-5 mr-2" /> Nouvelle Zone
             </button>
           </div>
 
           <div className="space-y-6">
             {zones.map((z) => (
-              <div key={z.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div key={z.id} className="sp-ticket">
+                <div className="p-6 border-b-2 border-[rgba(11,18,32,0.16)] flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Layers className="h-5 w-5 text-blue-600" />
-                    <h2 className="text-lg font-extrabold text-gray-900">{z.nomZone}</h2>
+                    <Layers className="h-5 w-5 text-blue-700" />
+                    <h2 className="text-lg font-extrabold text-slate-900">{z.nomZone}</h2>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button onClick={() => openCreateSpot(z.id)} className="px-4 py-2 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-blue-700 font-bold transition">
+                    <button onClick={() => openCreateSpot(z.id)} className="sp-btn">
                       <Plus className="inline-block h-4 w-4 mr-1" />
                       Ajouter place
                     </button>
-                    <button onClick={() => openEditZone(z)} className="p-2 text-gray-400 hover:text-blue-600 transition">
+                    <button onClick={() => openEditZone(z)} className="sp-btn h-10 px-3">
                       <Edit className="h-4 w-4" />
                     </button>
-                    <button onClick={() => deleteZone(z.id)} className="p-2 text-gray-400 hover:text-red-600 transition">
+                    <button onClick={() => deleteZone(z.id)} className="sp-btn sp-btn-danger h-10 px-3">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -501,10 +578,10 @@ export default function AdminDashboard() {
             ))}
 
             {zones.length === 0 && (
-              <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center">
-                <div className="text-gray-900 font-extrabold mb-1">Aucune zone</div>
-                <div className="text-gray-500 mb-6">Créez une zone pour commencer à ajouter des places.</div>
-                <button onClick={openCreateZone} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold inline-flex items-center shadow-lg transition">
+              <div className="sp-card border-dashed p-10 text-center">
+                <div className="text-slate-900 font-extrabold mb-1">Aucune zone</div>
+                <div className="text-slate-600 mb-6">Créez une zone pour commencer à ajouter des places.</div>
+                <button onClick={openCreateZone} className="sp-btn sp-btn-primary">
                   <Plus className="h-5 w-5 mr-2" /> Créer une zone
                 </button>
               </div>
@@ -516,42 +593,40 @@ export default function AdminDashboard() {
       <Modal open={parkingModalOpen} title={editingParking ? 'Modifier le parking' : 'Créer un parking'} onClose={() => setParkingModalOpen(false)}>
         <form onSubmit={submitParking} className="space-y-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Nom</label>
-            <input value={parkingForm.nom} onChange={(e) => setParkingForm((s) => ({ ...s, nom: e.target.value }))} required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className="block text-sm font-extrabold text-slate-700 mb-1">Nom</label>
+            <input value={parkingForm.nom} onChange={(e) => setParkingForm((s) => ({ ...s, nom: e.target.value }))} required className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Ville</label>
-              <input value={parkingForm.ville} onChange={(e) => setParkingForm((s) => ({ ...s, ville: e.target.value }))} required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-sm font-extrabold text-slate-700 mb-1">Ville</label>
+              <input value={parkingForm.ville} onChange={(e) => setParkingForm((s) => ({ ...s, ville: e.target.value }))} required className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Tarif (€/h)</label>
-              <input type="number" step="0.01" value={parkingForm.tarifHeure} onChange={(e) => setParkingForm((s) => ({ ...s, tarifHeure: Number(e.target.value) }))} required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-sm font-extrabold text-slate-700 mb-1">Tarif (€/h)</label>
+              <input type="number" step="0.01" value={parkingForm.tarifHeure} onChange={(e) => setParkingForm((s) => ({ ...s, tarifHeure: Number(e.target.value) }))} required className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
-          {!editingParking && (
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Nombre de places</label>
-              <input
-                type="number"
-                min={1}
-                max={500}
-                value={nombrePlaces}
-                onChange={(e) => setNombrePlaces(Number(e.target.value))}
-                required
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          )}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Adresse</label>
-            <input value={parkingForm.adresse} onChange={(e) => setParkingForm((s) => ({ ...s, adresse: e.target.value }))} required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className="block text-sm font-extrabold text-slate-700 mb-1">Nombre de places</label>
+            <input
+              type="number"
+              min={editingParking && typeof editingSpotsCount === 'number' ? Math.max(1, editingSpotsCount) : 1}
+              max={500}
+              value={nombrePlaces}
+              onChange={(e) => setNombrePlaces(Number(e.target.value))}
+              required
+              className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Coordonnées GPS (lat,lng)</label>
-            <input value={parkingForm.coordGps} onChange={(e) => setParkingForm((s) => ({ ...s, coordGps: e.target.value }))} required placeholder="48.8566,2.3522" className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className="block text-sm font-extrabold text-slate-700 mb-1">Adresse</label>
+            <input value={parkingForm.adresse} onChange={(e) => setParkingForm((s) => ({ ...s, adresse: e.target.value }))} required className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3 rounded-xl shadow-lg transition">
+          <div>
+            <label className="block text-sm font-extrabold text-slate-700 mb-1">Coordonnées GPS (lat,lng)</label>
+            <input value={parkingForm.coordGps} onChange={(e) => setParkingForm((s) => ({ ...s, coordGps: e.target.value }))} required placeholder="48.8566,2.3522" className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <button type="submit" className="sp-btn sp-btn-primary w-full h-12">
             {editingParking ? 'Enregistrer' : 'Créer'}
           </button>
         </form>
@@ -560,10 +635,10 @@ export default function AdminDashboard() {
       <Modal open={zoneModalOpen} title={editingZone ? 'Modifier la zone' : 'Créer une zone'} onClose={() => setZoneModalOpen(false)}>
         <form onSubmit={submitZone} className="space-y-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Nom de la zone</label>
-            <input value={zoneForm.nomZone} onChange={(e) => setZoneForm({ nomZone: e.target.value })} required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className="block text-sm font-extrabold text-slate-700 mb-1">Nom de la zone</label>
+            <input value={zoneForm.nomZone} onChange={(e) => setZoneForm({ nomZone: e.target.value })} required className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3 rounded-xl shadow-lg transition">
+          <button type="submit" className="sp-btn sp-btn-primary w-full h-12">
             {editingZone ? 'Enregistrer' : 'Créer'}
           </button>
         </form>
@@ -573,12 +648,12 @@ export default function AdminDashboard() {
         <form onSubmit={submitSpot} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Numéro</label>
-              <input value={spotForm.numeroPlace} onChange={(e) => setSpotForm((s) => ({ ...s, numeroPlace: e.target.value }))} required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-sm font-extrabold text-slate-700 mb-1">Numéro</label>
+              <input value={spotForm.numeroPlace} onChange={(e) => setSpotForm((s) => ({ ...s, numeroPlace: e.target.value }))} required className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Type</label>
-              <select value={spotForm.type} onChange={(e) => setSpotForm((s) => ({ ...s, type: e.target.value as ParkingSpot['type'] }))} className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <label className="block text-sm font-extrabold text-slate-700 mb-1">Type</label>
+              <select value={spotForm.type} onChange={(e) => setSpotForm((s) => ({ ...s, type: e.target.value as ParkingSpot['type'] }))} className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="STANDARD">STANDARD</option>
                 <option value="HANDICAPE">HANDICAPE</option>
                 <option value="ELECTRIQUE">ELECTRIQUE</option>
@@ -587,23 +662,23 @@ export default function AdminDashboard() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Coord X</label>
-              <input type="number" value={spotForm.coordX} onChange={(e) => setSpotForm((s) => ({ ...s, coordX: Number(e.target.value) }))} required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-sm font-extrabold text-slate-700 mb-1">Coord X</label>
+              <input type="number" value={spotForm.coordX} onChange={(e) => setSpotForm((s) => ({ ...s, coordX: Number(e.target.value) }))} required className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Coord Y</label>
-              <input type="number" value={spotForm.coordY} onChange={(e) => setSpotForm((s) => ({ ...s, coordY: Number(e.target.value) }))} required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-sm font-extrabold text-slate-700 mb-1">Coord Y</label>
+              <input type="number" value={spotForm.coordY} onChange={(e) => setSpotForm((s) => ({ ...s, coordY: Number(e.target.value) }))} required className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Statut</label>
-            <select value={spotForm.statut} onChange={(e) => setSpotForm((s) => ({ ...s, statut: e.target.value as ParkingSpot['statut'] }))} className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <label className="block text-sm font-extrabold text-slate-700 mb-1">Statut</label>
+            <select value={spotForm.statut} onChange={(e) => setSpotForm((s) => ({ ...s, statut: e.target.value as ParkingSpot['statut'] }))} className="w-full px-4 py-3 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-[color:var(--card)] focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="LIBRE">LIBRE</option>
               <option value="OCCUPE">OCCUPE</option>
               <option value="RESERVE">RESERVE</option>
             </select>
           </div>
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3 rounded-xl shadow-lg transition">
+          <button type="submit" className="sp-btn sp-btn-primary w-full h-12">
             {editingSpot ? 'Enregistrer' : 'Créer'}
           </button>
         </form>
@@ -612,15 +687,23 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ icon, label, value, bgColor }: { icon: React.ReactNode, label: string, value: string | number, bgColor: string }) {
+function StatCard({ icon, label, value, tone }: { icon: React.ReactNode, label: string, value: string | number, tone: 'blue' | 'green' | 'violet' | 'amber' }) {
+  const toneCls =
+    tone === 'green'
+      ? 'border-green-200 bg-green-50 text-green-700'
+      : tone === 'violet'
+        ? 'border-violet-200 bg-violet-50 text-violet-700'
+        : tone === 'amber'
+          ? 'border-amber-200 bg-amber-50 text-amber-700'
+          : 'border-blue-200 bg-blue-50 text-blue-700';
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
-      <div className={clsx("p-4 rounded-xl", bgColor)}>
+    <div className="sp-card p-6 flex items-center gap-4">
+      <div className={clsx("h-12 w-12 rounded-2xl border-2 flex items-center justify-center", toneCls)}>
         {icon}
       </div>
       <div>
-        <p className="text-sm text-gray-500 font-medium">{label}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-sm text-slate-600 font-semibold">{label}</p>
+        <p className="text-2xl font-extrabold text-slate-900 tracking-tight">{value}</p>
       </div>
     </div>
   );

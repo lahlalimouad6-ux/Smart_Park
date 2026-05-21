@@ -62,7 +62,7 @@ export default function ReservationsPage() {
     try {
       await api.post(`/reservations/${selectedRes.id}/cancel`);
       await refreshReservations();
-    } catch (err) {
+    } catch {
       alert("Impossible d'annuler cette réservation.");
     } finally {
       setCancelling(false);
@@ -72,14 +72,20 @@ export default function ReservationsPage() {
   if (loading) return <div className="p-8 text-center">Chargement...</div>;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Mes Réservations</h1>
+    <div className="sp-container py-10">
+      <div className="flex items-end justify-between gap-6 mb-8">
+        <div>
+          <div className="sp-chip">Mes réservations</div>
+          <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">Accès & QR Codes</h1>
+          <p className="mt-2 text-slate-600">Sélectionne une réservation pour afficher son QR et ses détails.</p>
+        </div>
+      </div>
 
       {reservations.length === 0 ? (
-        <div className="bg-white p-12 rounded-2xl shadow-sm border border-gray-100 text-center">
-          <Calendar className="h-16 w-16 text-gray-200 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-900">Aucune réservation pour le moment</h2>
-          <p className="text-gray-500 mt-2">Vos futures places de parking apparaîtront ici.</p>
+        <div className="sp-card p-12 text-center">
+          <Calendar className="h-16 w-16 text-slate-200 mx-auto mb-4" />
+          <h2 className="text-xl font-extrabold text-slate-900">Aucune réservation pour le moment</h2>
+          <p className="text-slate-600 mt-2">Vos futures places de parking apparaîtront ici.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -89,28 +95,28 @@ export default function ReservationsPage() {
                 key={res.id}
                 onClick={() => setSelectedRes(res)}
                 className={clsx(
-                  "bg-white p-5 rounded-xl border-2 transition cursor-pointer flex items-center justify-between group",
-                  selectedRes?.id === res.id ? "border-blue-500 shadow-md" : "border-gray-100 hover:border-gray-200 shadow-sm"
+                  "sp-card p-5 cursor-pointer flex items-center justify-between group",
+                  selectedRes?.id === res.id ? "ring-2 ring-blue-500" : "hover:shadow-lg transition-shadow"
                 )}
               >
                 <div className="flex items-center space-x-4">
                   <div className={clsx(
-                    "p-3 rounded-lg",
-                    res.statut === 'PAYE' ? "bg-green-50 text-green-600" : "bg-orange-50 text-orange-600"
+                    "p-3 rounded-2xl",
+                    res.statut === 'PAYE' ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"
                   )}>
                     <QrCode className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">Place {res.spot.numeroPlace}</h3>
-                    <p className="text-sm text-gray-500 flex items-center">
-                      <Clock className="h-3 w-3 mr-1" />
+                    <h3 className="font-extrabold text-slate-900">Place {res.spot.numeroPlace}</h3>
+                    <p className="text-sm text-slate-600 flex items-center">
+                      <Clock className="h-3 w-3 mr-1 text-slate-400" />
                       {format(new Date(res.dateDebut), "d MMMM 'à' HH:mm", { locale: fr })}
                     </p>
                   </div>
                 </div>
                 <ChevronRight className={clsx(
                   "h-5 w-5 transition",
-                  selectedRes?.id === res.id ? "text-blue-500 translate-x-1" : "text-gray-300 group-hover:text-gray-400"
+                  selectedRes?.id === res.id ? "text-blue-600 translate-x-1" : "text-slate-300 group-hover:text-slate-400"
                 )} />
               </div>
             ))}
@@ -118,14 +124,24 @@ export default function ReservationsPage() {
 
           <div className="lg:sticky lg:top-8">
             {selectedRes && (
-              <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                <div className="bg-blue-600 p-6 text-white text-center">
-                  <h2 className="text-xl font-bold">Détails de l&apos;Accès</h2>
-                  <p className="text-blue-100 text-sm mt-1">Présentez ce QR Code à l&apos;entrée</p>
-                </div>
-                
-                <div className="p-8">
-                  <div className="flex justify-center mb-8 bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200">
+              <div className="sp-ticket">
+                <div className="p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-extrabold text-slate-900 tracking-tight">SmartPark Pass</div>
+                      <div className="mt-1 text-sm text-slate-600">Place {selectedRes.spot.numeroPlace}</div>
+                    </div>
+                    <div className={clsx(
+                      "sp-chip",
+                      selectedRes.statut === 'PAYE' ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-orange-200 bg-orange-50 text-orange-700"
+                    )}>
+                      {selectedRes.statut}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 sp-divider" />
+
+                  <div className="mt-6 flex justify-center bg-white/60 p-6 rounded-2xl border border-dashed border-[rgba(15,23,42,0.14)]">
                     <QRCodeSVG value={qrUrl} size={200} />
                   </div>
                   <div className="text-center -mt-4 mb-8">
@@ -133,53 +149,53 @@ export default function ReservationsPage() {
                       href={qrUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm font-bold text-blue-600 hover:text-blue-700 underline"
+                      className="text-sm font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 underline"
                     >
                       Ouvrir le lien du QR
                     </a>
                     {needsPublicOriginConfig && (
-                      <div className="mt-3 text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 inline-block">
-                        Pour scanner depuis un téléphone, configure NEXT_PUBLIC_BACKEND_ORIGIN avec l’IP du PC (ex: http://192.168.x.x:8080), puis redémarre le frontend.
+                      <div className="mt-3 text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-2xl px-3 py-2 inline-block">
+                       
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-6">
                     <div className="flex items-start">
-                      <MapPin className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
+                      <MapPin className="h-5 w-5 text-slate-400 mt-0.5 mr-3" />
                       <div>
-                        <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Emplacement</p>
-                        <p className="font-medium text-gray-900">Place {selectedRes.spot.numeroPlace}</p>
+                        <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Emplacement</p>
+                        <p className="font-extrabold text-slate-900">Place {selectedRes.spot.numeroPlace}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-start">
-                        <Calendar className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
+                        <Calendar className="h-5 w-5 text-slate-400 mt-0.5 mr-3" />
                         <div>
-                          <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Arrivée</p>
-                          <p className="font-medium text-gray-900">{format(new Date(selectedRes.dateDebut), "HH:mm")}</p>
-                          <p className="text-xs text-gray-500">{format(new Date(selectedRes.dateDebut), "dd/MM/yyyy")}</p>
+                          <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Arrivée</p>
+                          <p className="font-extrabold text-slate-900">{format(new Date(selectedRes.dateDebut), "HH:mm")}</p>
+                          <p className="text-xs text-slate-600">{format(new Date(selectedRes.dateDebut), "dd/MM/yyyy")}</p>
                         </div>
                       </div>
                       <div className="flex items-start">
-                        <Clock className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
+                        <Clock className="h-5 w-5 text-slate-400 mt-0.5 mr-3" />
                         <div>
-                          <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Départ</p>
-                          <p className="font-medium text-gray-900">{format(new Date(selectedRes.dateFin), "HH:mm")}</p>
-                          <p className="text-xs text-gray-500">{format(new Date(selectedRes.dateFin), "dd/MM/yyyy")}</p>
+                          <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Départ</p>
+                          <p className="font-extrabold text-slate-900">{format(new Date(selectedRes.dateFin), "HH:mm")}</p>
+                          <p className="text-xs text-slate-600">{format(new Date(selectedRes.dateFin), "dd/MM/yyyy")}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-6 border-t border-gray-100 flex items-center justify-between">
+                    <div className="pt-6 border-t border-[rgba(15,23,42,0.10)] flex items-center justify-between">
                       <div className="flex items-center">
-                        <Tag className="h-5 w-5 text-gray-400 mr-3" />
-                        <span className="text-sm text-gray-600">Statut du paiement</span>
+                        <Tag className="h-5 w-5 text-slate-400 mr-3" />
+                        <span className="text-sm text-slate-600">Statut</span>
                       </div>
                       <span className={clsx(
-                        "px-3 py-1 rounded-full text-xs font-bold",
-                        selectedRes.statut === 'PAYE' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                        "sp-chip",
+                        selectedRes.statut === 'PAYE' ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-orange-200 bg-orange-50 text-orange-700"
                       )}>
                         {selectedRes.statut}
                       </span>
@@ -189,7 +205,7 @@ export default function ReservationsPage() {
                       <button
                         disabled={cancelling}
                         onClick={handleCancel}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold flex items-center justify-center transition disabled:opacity-50"
+                        className="w-full mt-2 sp-btn sp-btn-danger h-12 disabled:opacity-50"
                       >
                         <XCircle className="h-5 w-5 mr-2" />
                         {cancelling ? 'Annulation...' : 'Annuler la réservation'}

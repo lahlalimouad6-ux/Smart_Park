@@ -2,7 +2,7 @@
 
 import { ParkingSpot } from '@/types';
 import { clsx } from 'clsx';
-import { Zap, Accessibility, Circle } from 'lucide-react';
+import { Accessibility, Car, Circle, Zap } from 'lucide-react';
 
 interface ParkingPlanProps {
   spots: ParkingSpot[];
@@ -11,9 +11,6 @@ interface ParkingPlanProps {
 }
 
 export default function ParkingPlan({ spots, selectedSpotId, onSelectSpot }: ParkingPlanProps) {
-  // We'll use a grid system or absolute positioning based on coordX/coordY
-  // For simplicity and responsiveness, let's assume a container of fixed aspect ratio
-  
   const getSpotIcon = (type: string) => {
     switch (type) {
       case 'ELECTRIQUE': return <Zap className="h-4 w-4" />;
@@ -22,43 +19,101 @@ export default function ParkingPlan({ spots, selectedSpotId, onSelectSpot }: Par
     }
   };
 
-  const getSpotColor = (spot: ParkingSpot) => {
-    if (spot.id === selectedSpotId) return 'bg-blue-500 text-white border-blue-700 shadow-lg scale-105 z-10';
-    if (spot.statut === 'OCCUPE') return 'bg-red-100 text-red-500 border-red-200 cursor-not-allowed';
-    if (spot.statut === 'RESERVE') return 'bg-orange-100 text-orange-500 border-orange-200 cursor-not-allowed';
-    return 'bg-green-100 text-green-600 border-green-200 hover:bg-green-200 hover:scale-105 cursor-pointer';
+  const getSpotState = (spot: ParkingSpot) => {
+    if (spot.id === selectedSpotId) return 'selected' as const;
+    if (spot.statut === 'OCCUPE') return 'occupied' as const;
+    if (spot.statut === 'RESERVE') return 'reserved' as const;
+    return 'free' as const;
   };
 
   return (
-    <div className="relative w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-8 min-h-[400px] shadow-inner overflow-auto">
-      <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
-        {spots.map((spot) => (
-          <div
-            key={spot.id}
-            onClick={() => spot.statut === 'LIBRE' && onSelectSpot(spot)}
-            className={clsx(
-              "flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all duration-200 aspect-square",
-              getSpotColor(spot)
-            )}
-            title={`Place ${spot.numeroPlace} - ${spot.type}`}
-          >
-            <span className="text-xs font-bold mb-1">{spot.numeroPlace}</span>
-            {getSpotIcon(spot.type)}
-            <span className="text-[10px] mt-1 capitalize hidden sm:block">
-              {spot.statut.toLowerCase()}
-            </span>
+    <div className="sp-card p-5">
+      <div className="relative overflow-hidden rounded-[28px] border-2 border-[rgba(11,18,32,0.16)] bg-white/70">
+        <div className="p-5">
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-5">
+            {spots.map((spot) => {
+              const state = getSpotState(spot);
+              const clickable = spot.statut === 'LIBRE';
+              const upcomingLabel = spot.nextReservationStart
+                ? (() => {
+                    const d = new Date(spot.nextReservationStart);
+                    if (!Number.isFinite(d.getTime())) return null;
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    return `${hh}:${mm}`;
+                  })()
+                : null;
+              const dot =
+                state === 'free' || state === 'selected' ? 'bg-emerald-500' : 'bg-red-500';
+              const cardCls =
+                state === 'selected'
+                  ? 'ring-2 ring-blue-600 border-[rgba(11,18,32,0.16)] bg-emerald-50/35'
+                  : state === 'free'
+                    ? 'border-[rgba(11,18,32,0.16)] bg-emerald-50/30 hover:border-emerald-400'
+                    : 'border-[rgba(11,18,32,0.12)] bg-red-50/30 opacity-80';
+
+              return (
+                <button
+                  key={spot.id}
+                  type="button"
+                  disabled={!clickable}
+                  onClick={() => clickable && onSelectSpot(spot)}
+                  className={clsx(
+                    "group relative text-left rounded-3xl border-2 bg-[color:var(--card)] shadow-[0_10px_0_rgba(11,18,32,0.06),0_18px_40px_rgba(11,18,32,0.10)] transition",
+                    "px-3 pt-3 pb-4 min-h-[110px] sm:min-h-[120px]",
+                    clickable ? "hover:-translate-y-0.5 cursor-pointer" : "cursor-not-allowed",
+                    cardCls
+                  )}
+                  title={`Place ${spot.numeroPlace}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-xs font-extrabold tracking-tight text-slate-900">
+                      {spot.numeroPlace}
+                    </div>
+                    <div className={clsx("h-2.5 w-2.5 rounded-full", dot)} />
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-center">
+                    {state === 'occupied' || state === 'reserved' ? (
+                      <Car className="h-10 w-10 text-slate-900" />
+                    ) : (
+                      <div className="h-10 w-10 rounded-2xl border-2 border-[rgba(11,18,32,0.14)] bg-white/70 flex items-center justify-center text-slate-500">
+                        {getSpotIcon(spot.type)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-center">
+                    <span
+                      className={clsx(
+                        "inline-flex items-center px-2 py-1 rounded-full text-[10px] font-extrabold leading-none whitespace-nowrap border",
+                        clickable
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                          : "bg-red-100 text-red-700 border-red-200"
+                      )}
+                    >
+                      {spot.statut === 'LIBRE' ? 'Libre' : 'Occupée'}
+                    </span>
+                  </div>
+
+                  {clickable && upcomingLabel && (
+                    <div className="mt-2 flex items-center justify-center">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-extrabold leading-none whitespace-nowrap border border-red-200 bg-red-50 text-red-700">
+                        À {upcomingLabel}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
-        ))}
+        </div>
       </div>
-      
-      {/* Legend */}
-      <div className="mt-8 flex flex-wrap gap-4 border-t pt-4 text-sm text-gray-600">
-        <div className="flex items-center"><div className="w-3 h-3 bg-green-100 border border-green-200 rounded mr-2"></div> Libre</div>
-        <div className="flex items-center"><div className="w-3 h-3 bg-red-100 border border-red-200 rounded mr-2"></div> Occupé</div>
-        <div className="flex items-center"><div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded mr-2"></div> Réservé</div>
-        <div className="flex items-center"><div className="w-3 h-3 bg-blue-500 border border-blue-700 rounded mr-2"></div> Sélectionné</div>
-        <div className="flex items-center ml-auto"><Zap className="h-3 w-3 mr-1" /> Électrique</div>
-        <div className="flex items-center"><Accessibility className="h-3 w-3 mr-1" /> Handicapé</div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <span className="sp-chip"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Libre</span>
+        <span className="sp-chip"><span className="h-2 w-2 rounded-full bg-red-500" /> Occupée</span>
+        <span className="sp-chip"><span className="h-2 w-2 rounded-full bg-blue-600" /> Sélectionné</span>
       </div>
     </div>
   );

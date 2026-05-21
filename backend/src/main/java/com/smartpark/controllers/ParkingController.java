@@ -74,7 +74,7 @@ public class ParkingController {
     @Autowired
     private ParkingPricingRuleRepository pricingRuleRepository;
 
-    public record CameraPlanSpotDTO(Long spotId, String numeroPlace, ParkingSpot.SpotStatus statut, Double x, Double y, Double w, Double h) {}
+    public record CameraPlanSpotDTO(Long spotId, String numeroPlace, ParkingSpot.SpotStatus statut, LocalDateTime nextReservationStart, Double x, Double y, Double w, Double h) {}
     public record CameraPlanDTO(Long parkingId, String parkingNom, String videoFile, List<CameraPlanSpotDTO> spots) {}
     public record PricingQuoteDTO(
             Long parkingId,
@@ -164,6 +164,28 @@ public class ParkingController {
         cameraOccupancyMonitor.ensureLayoutForParking(id);
 
         List<ParkingSpot> spots = spotRepository.findByZoneParkingId(id);
+
+        Map<Long, LocalDateTime> nextStartBySpotId = new HashMap<>();
+        if (!spots.isEmpty()) {
+            List<Long> spotIds = new ArrayList<>(spots.size());
+            for (ParkingSpot s : spots) {
+                if (s != null && s.getId() != null) spotIds.add(s.getId());
+            }
+            if (!spotIds.isEmpty()) {
+                LocalDateTime now = LocalDateTime.now();
+                List<Reservation.ReservationStatus> activeStatuses = List.of(
+                        Reservation.ReservationStatus.PAYE,
+                        Reservation.ReservationStatus.EN_ATTENTE
+                );
+                for (Object[] r : reservationRepository.findNextReservationStarts(spotIds, now, activeStatuses)) {
+                    if (r == null || r.length < 2) continue;
+                    Long sid = (Long) r[0];
+                    LocalDateTime next = (LocalDateTime) r[1];
+                    if (sid != null) nextStartBySpotId.put(sid, next);
+                }
+            }
+        }
+
         Map<Long, ParkingSpotRegion> bySpotId = new HashMap<>();
         for (ParkingSpotRegion r : regionRepository.findBySpotZoneParkingId(id)) {
             if (r.getSpot() != null && r.getSpot().getId() != null) {
@@ -178,6 +200,7 @@ public class ParkingController {
                     s.getId(),
                     s.getNumeroPlace(),
                     s.getStatut(),
+                    nextStartBySpotId.get(s.getId()),
                     r != null ? r.getX() : null,
                     r != null ? r.getY() : null,
                     r != null ? r.getW() : null,
@@ -196,12 +219,76 @@ public class ParkingController {
 
     @GetMapping("/{id}/zones")
     public List<Zone> getZonesByParking(@PathVariable Long id) {
-        return zoneRepository.findByParkingIdWithSpots(id);
+        List<Zone> zones = zoneRepository.findByParkingIdWithSpots(id);
+        List<Long> spotIds = new ArrayList<>();
+        for (Zone z : zones) {
+            if (z.getSpots() == null) continue;
+            for (ParkingSpot s : z.getSpots()) {
+                if (s != null && s.getId() != null) {
+                    spotIds.add(s.getId());
+                }
+            }
+        }
+
+        if (!spotIds.isEmpty()) {
+            LocalDateTime now = LocalDateTime.now();
+            List<Reservation.ReservationStatus> activeStatuses = List.of(
+                    Reservation.ReservationStatus.PAYE,
+                    Reservation.ReservationStatus.EN_ATTENTE
+            );
+            Map<Long, LocalDateTime> nextStartBySpotId = new HashMap<>();
+            for (Object[] r : reservationRepository.findNextReservationStarts(spotIds, now, activeStatuses)) {
+                if (r == null || r.length < 2) continue;
+                Long sid = (Long) r[0];
+                LocalDateTime next = (LocalDateTime) r[1];
+                if (sid != null) nextStartBySpotId.put(sid, next);
+            }
+            for (Zone z : zones) {
+                if (z.getSpots() == null) continue;
+                for (ParkingSpot s : z.getSpots()) {
+                    if (s == null || s.getId() == null) continue;
+                    s.setNextReservationStart(nextStartBySpotId.get(s.getId()));
+                }
+            }
+        }
+
+        return zones;
     }
 
     @GetMapping("/zones/{zoneId}/spots")
     public List<ParkingSpot> getSpotsByZone(@PathVariable Long zoneId) {
-        return spotRepository.findByZoneId(zoneId);
+        List<ParkingSpot> spots = spotRepository.findByZoneId(zoneId);
+        if (spots.isEmpty()) {
+            return spots;
+        }
+
+        List<Long> spotIds = new ArrayList<>(spots.size());
+        for (ParkingSpot s : spots) {
+            if (s != null && s.getId() != null) {
+                spotIds.add(s.getId());
+            }
+        }
+        if (spotIds.isEmpty()) {
+            return spots;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<Reservation.ReservationStatus> activeStatuses = List.of(
+                Reservation.ReservationStatus.PAYE,
+                Reservation.ReservationStatus.EN_ATTENTE
+        );
+        Map<Long, LocalDateTime> nextStartBySpotId = new HashMap<>();
+        for (Object[] r : reservationRepository.findNextReservationStarts(spotIds, now, activeStatuses)) {
+            if (r == null || r.length < 2) continue;
+            Long sid = (Long) r[0];
+            LocalDateTime next = (LocalDateTime) r[1];
+            if (sid != null) nextStartBySpotId.put(sid, next);
+        }
+        for (ParkingSpot s : spots) {
+            if (s == null || s.getId() == null) continue;
+            s.setNextReservationStart(nextStartBySpotId.get(s.getId()));
+        }
+        return spots;
     }
 
     @PostMapping

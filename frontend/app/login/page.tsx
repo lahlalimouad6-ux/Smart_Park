@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import api from '@/lib/api';
-import { Car, Lock, Mail, AlertCircle } from 'lucide-react';
+import { Lock, Mail, AlertCircle } from 'lucide-react';
 
 function extractErrorMessage(err: unknown): string | null {
   if (typeof err !== 'object' || err === null) return null;
@@ -24,7 +26,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -49,15 +51,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl border border-gray-100">
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-10">
+      <div className="sp-ticket max-w-md w-full p-10">
         <div className="text-center">
           <div className="flex justify-center">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <Car className="h-10 w-10 text-blue-600" />
+            <div className="bg-white p-4 rounded-3xl border border-[rgba(15,23,42,0.12)]">
+              <Image
+                src="/logo.jpeg"
+                alt="SmartPark"
+                width={120}
+                height={120}
+                priority
+                style={{ width: 'auto', height: 'auto' }}
+                className="rounded-xl object-contain"
+              />
             </div>
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Connexion</h2>
+          <div className="mt-5">
+            <div className="text-2xl font-extrabold text-gray-900 tracking-tight">SmartPark</div>
+            <h2 className="mt-1 text-lg font-bold text-gray-700">Connexion</h2>
+          </div>
           <p className="mt-2 text-sm text-gray-600">
             Ou{' '}
             <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500 underline decoration-blue-200 underline-offset-4">
@@ -121,7 +134,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform active:scale-[0.98] disabled:opacity-50"
+              className="w-full sp-btn sp-btn-primary h-12 disabled:opacity-50"
             >
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>

@@ -1,46 +1,144 @@
+ 'use client';
+
 import Link from 'next/link';
-import { Shield, Smartphone, MapPin, ArrowRight } from 'lucide-react';
+import { Shield, Smartphone, MapPin, QrCode, Sparkles, Clock3 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 export default function Home() {
+  const images = useMemo(
+    () => [
+      {
+        src: 'https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1600&q=70',
+        alt: 'Parking extérieur',
+        label: 'Parkings en ville'
+      },
+      {
+        src: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=70',
+        alt: 'Voiture sur route',
+        label: 'Navigation & trajet'
+      },
+      {
+        src: 'https://images.unsplash.com/photo-1493238792000-8113da705763?auto=format&fit=crop&w=1600&q=70',
+        alt: 'Voiture et lumière',
+        label: 'Expérience fluide'
+      }
+    ],
+    []
+  );
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setActiveIndex((i) => (i + 1) % images.length);
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [images.length]);
+
   return (
-    <div className="bg-white">
+    <div>
       {/* Hero Section */}
-      <div className="relative isolate overflow-hidden bg-gradient-to-b from-blue-100/20">
-        <div className="mx-auto max-w-7xl px-6 pb-24 pt-10 sm:pb-32 lg:flex lg:px-8 lg:py-40">
-          <div className="mx-auto max-w-2xl lg:mx-0 lg:max-w-xl lg:flex-shrink-0 lg:pt-8">
-            <div className="mt-24 sm:mt-32 lg:mt-16">
-              <span className="rounded-full bg-blue-600/10 px-3 py-1 text-sm font-semibold leading-6 text-blue-600 ring-1 ring-inset ring-blue-600/10">
-                Nouveau : Recharge Électrique incluse
+      <div className="sp-container pt-12 pb-10 lg:pt-16 lg:pb-14">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+          <div>
+            <div className="flex flex-wrap gap-2">
+              <span className="sp-chip">
+                <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                Plan interactif
+              </span>
+              <span className="sp-chip">
+                <QrCode className="h-3.5 w-3.5 text-emerald-600" />
+                Accès QR
+              </span>
+              <span className="sp-chip">
+                <Clock3 className="h-3.5 w-3.5 text-slate-500" />
+                Temps réel
               </span>
             </div>
-            <h1 className="mt-10 text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-              Garez-vous plus intelligemment avec <span className="text-blue-600">SmartPark</span>
+            <h1 className="mt-6 text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900">
+              Réservez, scannez, garez-vous.
             </h1>
-            <p className="mt-6 text-lg leading-8 text-gray-600">
-              Réservez votre place de parking à l&apos;avance, choisissez l&apos;emplacement exact sur le plan et accédez au parking instantanément via votre smartphone.
+            <p className="mt-4 text-lg text-slate-600 leading-relaxed">
+              Un parcours simple : choisissez un parking, sélectionnez une place sur le plan, puis accédez avec un QR Code sécurisé.
             </p>
-            <div className="mt-10 flex items-center gap-x-6">
-              <Link
-                href="/parkings"
-                className="rounded-xl bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-lg hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all transform hover:scale-105"
-              >
-                Trouver une place
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href="/parkings" className="sp-btn sp-btn-primary">
+                Trouver un parking
               </Link>
-              <Link href="/register" className="text-sm font-bold leading-6 text-gray-900 flex items-center">
-                Créer un compte <ArrowRight className="ml-2 h-4 w-4" />
+              <Link href="/register" className="sp-btn">
+                Créer un compte
               </Link>
             </div>
           </div>
-          <div className="mx-auto mt-16 flex max-w-2xl sm:mt-24 lg:ml-10 lg:mr-0 lg:mt-0 lg:max-w-none lg:flex-none xl:ml-32">
-            <div className="max-w-3xl flex-none sm:max-w-5xl lg:max-w-none">
-              <div className="rounded-2xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
-                <div className="bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
-                   <img 
-                    src="https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&q=80&w=2070" 
-                    alt="Parking Intelligent" 
-                    className="w-[500px] h-[400px] object-cover"
-                  />
+          <div className="sp-ticket">
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-extrabold text-slate-900 tracking-tight">
+                    Aperçu SmartPark
+                  </div>
+                  <div className="mt-1 text-sm text-slate-600">
+                    Parkings • Voitures • Navigation
+                  </div>
                 </div>
+                <div className="sp-chip">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                  Live
+                </div>
+              </div>
+
+              <div className="mt-5 overflow-hidden rounded-[28px] border-2 border-[rgba(11,18,32,0.16)] bg-black relative">
+                <div className="relative aspect-[16/10]">
+                  {images.map((img, idx) => (
+                    <div
+                      key={img.src}
+                      role="img"
+                      aria-label={img.alt}
+                      className={`absolute inset-0 h-full w-full bg-center bg-cover transition-opacity duration-700 ${
+                        idx === activeIndex ? 'opacity-100' : 'opacity-0'
+                      }`}
+                      style={{ backgroundImage: `url(${img.src})` }}
+                    />
+                  ))}
+
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/0" />
+
+                  <div className="absolute left-4 right-4 bottom-4 flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-white font-extrabold tracking-tight truncate">
+                        {images[activeIndex]?.label}
+                      </div>
+                      
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {images.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setActiveIndex(idx)}
+                          className={`h-2.5 rounded-full transition-all ${
+                            idx === activeIndex ? 'w-7 bg-white' : 'w-2.5 bg-white/45 hover:bg-white/70'
+                          }`}
+                          aria-label={`Aller à l'image ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-3 gap-2">
+                <span className="sp-chip justify-center">
+                  <MapPin className="h-3.5 w-3.5 text-blue-700" />
+                  Carte
+                </span>
+                <span className="sp-chip justify-center">
+                  <Smartphone className="h-3.5 w-3.5 text-emerald-700" />
+                  Mobile
+                </span>
+                <span className="sp-chip justify-center">
+                  <QrCode className="h-3.5 w-3.5 text-slate-700" />
+                  QR
+                </span>
               </div>
             </div>
           </div>
@@ -48,50 +146,32 @@ export default function Home() {
       </div>
 
       {/* Features Section */}
-      <div className="py-24 sm:py-32 bg-gray-50">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+      <div className="sp-container pb-14 lg:pb-20">
           <div className="mx-auto max-w-2xl lg:text-center">
-            <h2 className="text-base font-semibold leading-7 text-blue-600 uppercase tracking-widest">Pourquoi nous choisir ?</h2>
-            <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              Tout ce dont vous avez besoin pour un stationnement sans stress
-            </p>
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Une expérience claire</h2>
+            <p className="mt-3 text-slate-600">Un design “produit” centré sur la carte, l’état des places et l’accès QR.</p>
           </div>
-          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-            <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
-              <div className="flex flex-col items-center text-center">
-                <dt className="flex flex-col items-center gap-y-4 text-base font-bold leading-7 text-gray-900">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 shadow-lg">
-                    <MapPin className="h-8 w-8 text-white" />
-                  </div>
-                  Visual Choice
-                </dt>
-                <dd className="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600">
-                  <p className="flex-auto">Visualisez le plan du parking en temps réel et cliquez sur la place exacte que vous souhaitez occuper.</p>
-                </dd>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <dt className="flex flex-col items-center gap-y-4 text-base font-bold leading-7 text-gray-900">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 shadow-lg">
-                    <Smartphone className="h-8 w-8 text-white" />
-                  </div>
-                  Accès QR Code
-                </dt>
-                <dd className="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600">
-                  <p className="flex-auto">Plus de tickets papier. Utilisez votre QR Code sécurisé pour entrer et sortir du parking en toute fluidité.</p>
-                </dd>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <dt className="flex flex-col items-center gap-y-4 text-base font-bold leading-7 text-gray-900">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 shadow-lg">
-                    <Shield className="h-8 w-8 text-white" />
-                  </div>
-                  Paiement Sécurisé
-                </dt>
-                <dd className="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600">
-                  <p className="flex-auto">Payez en ligne ou utilisez votre abonnement mensuel/annuel. Transactions sécurisées et transparentes.</p>
-                </dd>
-              </div>
-            </dl>
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="sp-card p-6">
+            <div className="h-12 w-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center">
+              <MapPin className="h-6 w-6" />
+            </div>
+            <div className="mt-4 font-extrabold text-slate-900">Choix visuel</div>
+            <div className="mt-2 text-slate-600">Plan interactif + statuts (libre/occupé/réservé) pour choisir rapidement.</div>
+          </div>
+          <div className="sp-card p-6">
+            <div className="h-12 w-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center">
+              <Smartphone className="h-6 w-6" />
+            </div>
+            <div className="mt-4 font-extrabold text-slate-900">Accès QR</div>
+            <div className="mt-2 text-slate-600">Un pass lisible, scannable et consultable sur téléphone (infos conducteur + parking).</div>
+          </div>
+          <div className="sp-card p-6">
+            <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center">
+              <Shield className="h-6 w-6" />
+            </div>
+            <div className="mt-4 font-extrabold text-slate-900">Sécurisé</div>
+            <div className="mt-2 text-slate-600">JWT + rôles (ADMIN/CONDUCTEUR) et endpoints publics limités (QR).</div>
           </div>
         </div>
       </div>

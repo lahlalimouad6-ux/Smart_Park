@@ -85,12 +85,51 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Object[]> findAdminReservationOverview();
 
     @Query("SELECT r FROM Reservation r WHERE r.spot.id = :spotId AND " +
-           "((r.dateDebut <= :dateFin AND r.dateFin >= :dateDebut)) AND " +
+           "((r.dateDebut < :dateFin AND r.dateFin > :dateDebut)) AND " +
            "r.statut IN (:statuses)")
     List<Reservation> findOverlappingReservations(@Param("spotId") Long spotId, 
                                                 @Param("dateDebut") LocalDateTime dateDebut, 
                                                 @Param("dateFin") LocalDateTime dateFin,
                                                 @Param("statuses") List<Reservation.ReservationStatus> statuses);
+
+    @Query("""
+        SELECT r.spot.id, MIN(r.dateDebut)
+        FROM Reservation r
+        WHERE r.spot.id IN :spotIds
+          AND r.dateDebut > :now
+          AND r.statut IN :statuses
+        GROUP BY r.spot.id
+        """)
+    List<Object[]> findNextReservationStarts(
+            @Param("spotIds") List<Long> spotIds,
+            @Param("now") LocalDateTime now,
+            @Param("statuses") List<Reservation.ReservationStatus> statuses
+    );
+
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE r.spot.id = :spotId
+          AND r.dateDebut <= :now
+          AND r.dateFin > :now
+          AND r.statut IN :statuses
+        """)
+    List<Reservation> findActiveReservationsAt(
+            @Param("spotId") Long spotId,
+            @Param("now") LocalDateTime now,
+            @Param("statuses") List<Reservation.ReservationStatus> statuses
+    );
+
+    @Query("""
+        SELECT r FROM Reservation r
+        JOIN FETCH r.spot s
+        WHERE r.dateDebut <= :now
+          AND r.dateFin > :now
+          AND r.statut IN :statuses
+        """)
+    List<Reservation> findActiveReservationsForActivation(
+            @Param("now") LocalDateTime now,
+            @Param("statuses") List<Reservation.ReservationStatus> statuses
+    );
 
     @Query("SELECT COALESCE(SUM(r.montantTotal), 0) FROM Reservation r WHERE r.statut IN (:statuses)")
     BigDecimal sumMontantTotalByStatutIn(@Param("statuses") List<Reservation.ReservationStatus> statuses);

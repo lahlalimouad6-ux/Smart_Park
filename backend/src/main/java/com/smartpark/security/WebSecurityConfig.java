@@ -93,6 +93,7 @@ public class WebSecurityConfig {
             )
             .authorizeHttpRequests(auth -> 
                 auth.requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/ws/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/cameras/video/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/parkings/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/reservations/qr/**").permitAll()

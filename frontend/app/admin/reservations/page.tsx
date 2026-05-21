@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Calendar, ChevronLeft, Search } from 'lucide-react';
@@ -60,7 +60,7 @@ export default function AdminReservationsPage() {
   const [rows, setRows] = useState<AdminReservationRow[]>([]);
   const [q, setQ] = useState('');
   const [page, setPage] = useState(0);
-  const [size] = useState(20);
+  const [size] = useState(5);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -84,7 +84,7 @@ export default function AdminReservationsPage() {
       });
   }, [router]);
 
-  const fetchRows = async (targetPage: number, targetQ: string) => {
+  const fetchRows = useCallback(async (targetPage: number, targetQ: string) => {
     try {
       setLoading(true);
       const res = await api.get<PagedResponse<AdminReservationRow>>('/reservations/admin/paged', {
@@ -107,47 +107,53 @@ export default function AdminReservationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router, size]);
 
   useEffect(() => {
     const t = setTimeout(() => {
       void fetchRows(page, q);
     }, 250);
     return () => clearTimeout(t);
-  }, [page, q]);
+  }, [page, q, fetchRows]);
 
-  if (loading) return <div className="p-8 text-center">Chargement...</div>;
+  if (loading) {
+    return (
+      <div className="sp-container py-10">
+        <div className="sp-card p-10 text-center text-slate-600">Chargement...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="sp-container py-10">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           <button
             onClick={() => router.push('/admin')}
-            className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-gray-200 transition"
+            className="sp-btn"
           >
-            <ChevronLeft className="h-5 w-5 text-gray-700" />
+            <ChevronLeft className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Utilisateurs & Parkings</h1>
-            <p className="text-gray-500">Réservations des conducteurs (parking + place)</p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Réservations</h1>
+            <p className="text-slate-600">Réservations des conducteurs</p>
           </div>
         </div>
         <button
           onClick={() => void fetchRows(page, q)}
-          className="bg-white hover:bg-gray-50 text-gray-900 px-5 py-3 rounded-xl font-bold border border-gray-200 transition"
+          className="sp-btn"
         >
           Actualiser
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap">
-          <div className="text-sm text-gray-400">
+      <div className="sp-ticket">
+        <div className="p-6 flex items-center justify-between gap-4 flex-wrap">
+          <div className="text-sm text-slate-600">
             Total : {totalElements} réservation(s) • Page {Math.min(page + 1, Math.max(1, totalPages))}/{Math.max(1, totalPages)}
           </div>
           <div className="relative w-full sm:w-[420px]">
-            <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               value={q}
               onChange={(e) => {
@@ -155,18 +161,18 @@ export default function AdminReservationsPage() {
                 setQ(e.target.value);
               }}
               placeholder="Rechercher (email, parking, place, #id)..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-full pl-9 pr-3 py-2.5 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[color:var(--card)] text-slate-900"
             />
           </div>
         </div>
 
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b-2 border-[rgba(11,18,32,0.16)] flex items-center justify-between">
           <button
             disabled={loading || page <= 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             className={clsx(
-              "px-4 py-2 rounded-xl font-bold border transition",
-              page <= 0 || loading ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-gray-900 border-gray-200"
+              "sp-btn",
+              page <= 0 || loading ? "opacity-50 cursor-not-allowed" : ""
             )}
           >
             Précédent
@@ -175,8 +181,8 @@ export default function AdminReservationsPage() {
             disabled={loading || totalPages === 0 || page >= totalPages - 1}
             onClick={() => setPage((p) => p + 1)}
             className={clsx(
-              "px-4 py-2 rounded-xl font-bold border transition",
-              totalPages === 0 || page >= totalPages - 1 || loading ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-gray-900 border-gray-200"
+              "sp-btn",
+              totalPages === 0 || page >= totalPages - 1 || loading ? "opacity-50 cursor-not-allowed" : ""
             )}
           >
             Suivant
@@ -184,8 +190,8 @@ export default function AdminReservationsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">
+          <table className="sp-table text-left">
+            <thead>
               <tr>
                 <th className="px-6 py-4">Utilisateur</th>
                 <th className="px-6 py-4">Parking</th>
@@ -196,9 +202,9 @@ export default function AdminReservationsPage() {
                 <th className="px-6 py-4">Statut</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {rows.map((r) => (
-                <tr key={r.reservationId} className="hover:bg-gray-50 transition">
+                <tr key={r.reservationId}>
                   <td className="px-6 py-4">
                     <div className="font-bold text-gray-900">{r.userNom} {r.userPrenom}</div>
                     <div className="text-sm text-gray-500">{r.userEmail}</div>
@@ -219,13 +225,18 @@ export default function AdminReservationsPage() {
                   </td>
                   <td className="px-6 py-4 text-gray-900 font-bold">{Number(r.montantTotal ?? 0).toFixed(2)} €</td>
                   <td className="px-6 py-4">
-                    <span className={clsx(
-                      'px-3 py-1 rounded-full text-xs font-bold',
-                      r.statut === 'PAYE' ? 'bg-green-100 text-green-700'
-                        : r.statut === 'ANNULE' ? 'bg-gray-100 text-gray-700'
-                          : r.statut === 'TERMINE' ? 'bg-blue-100 text-blue-700'
-                            : 'bg-orange-100 text-orange-700'
-                    )}>
+                    <span
+                      className={clsx(
+                        "sp-badge",
+                        r.statut === 'PAYE'
+                          ? "sp-badge-success"
+                          : r.statut === 'ANNULE'
+                            ? "sp-badge-muted"
+                            : r.statut === 'TERMINE'
+                              ? "sp-badge-info"
+                              : "sp-badge-warn"
+                      )}
+                    >
                       {r.statut}
                     </span>
                   </td>

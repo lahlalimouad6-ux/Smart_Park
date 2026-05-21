@@ -1,12 +1,14 @@
 package com.smartpark.services;
 
 import com.smartpark.dto.ReservationRequest;
+import com.smartpark.messaging.ReservationEventPublisher;
 import com.smartpark.models.*;
 import com.smartpark.repository.ParkingSpotRepository;
 import com.smartpark.repository.ReservationRepository;
 import com.smartpark.repository.SubscriptionRepository;
 import com.smartpark.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,9 @@ public class ReservationService {
     @Autowired
     private PricingService pricingService;
 
+    @Autowired
+    private ObjectProvider<ReservationEventPublisher> reservationEventPublisher;
+
     /**
      * Vérifie si une place est disponible pour un créneau donné.
      */
@@ -62,6 +67,16 @@ public class ReservationService {
      */
     @Transactional
     public Reservation createReservation(Long userId, ReservationRequest request) {
+        if (request == null || request.getSpotId() == null) {
+            throw new RuntimeException("Requête invalide");
+        }
+        if (request.getDateDebut() == null || request.getDateFin() == null) {
+            throw new RuntimeException("Dates invalides");
+        }
+        if (!request.getDateDebut().isBefore(request.getDateFin())) {
+            throw new RuntimeException("La date de fin doit être après la date de début");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
@@ -121,10 +136,21 @@ public class ReservationService {
         reservation.setStatut(statutReservation);
         reservation.setQrCodeToken(UUID.randomUUID().toString());
 
-        spot.setStatut(ParkingSpot.SpotStatus.OCCUPE);
-        spotRepository.save(spot);
+        LocalDateTime now = LocalDateTime.now();
+        boolean activeNow =
+                (now.isEqual(request.getDateDebut()) || now.isAfter(request.getDateDebut()))
+                        && now.isBefore(request.getDateFin());
+        if (activeNow) {
+            spot.setStatut(ParkingSpot.SpotStatus.OCCUPE);
+            spotRepository.save(spot);
+        }
 
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+        ReservationEventPublisher publisher = reservationEventPublisher.getIfAvailable();
+        if (publisher != null) {
+            publisher.publish("RESERVATION_CREATED", saved.getId(), spot.getId(), saved.getDateDebut(), saved.getDateFin());
+        }
+        return saved;
     }
 
     @Transactional
@@ -150,11 +176,47 @@ public class ReservationService {
 
         ParkingSpot spot = reservation.getSpot();
         if (spot != null) {
-            spot.setStatut(ParkingSpot.SpotStatus.LIBRE);
-            spotRepository.save(spot);
+            LocalDateTime now1 = LocalDateTime.now();
+            List<Reservation.ReservationStatus> activeStatuses = List.of(
+                    Reservation.ReservationStatus.PAYE,
+                    Reservation.ReservationStatus.EN_ATTENTE
+            );
+            boolean hasActiveNow = !reservationRepository.findActiveReservationsAt(spot.getId(), now1, activeStatuses).isEmpty();
+            if (!hasActiveNow) {
+                spot.setStatut(ParkingSpot.SpotStatus.LIBRE);
+                spotRepository.save(spot);
+            }
         }
 
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+        ReservationEventPublisher publisher = reservationEventPublisher.getIfAvailable();
+        if (publisher != null) {
+            publisher.publish("RESERVATION_CANCELLED", saved.getId(), spot != null ? spot.getId() : null, saved.getDateDebut(), saved.getDateFin());
+        }
+        return saved;
+    }
+
+    @Scheduled(fixedDelay = 60_000)
+    @Transactional
+    public void activateDueReservations() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Reservation.ReservationStatus> activeStatuses = List.of(
+                Reservation.ReservationStatus.PAYE,
+                Reservation.ReservationStatus.EN_ATTENTE
+        );
+        List<Reservation> due = reservationRepository.findActiveReservationsForActivation(now, activeStatuses);
+        if (due.isEmpty()) {
+            return;
+        }
+
+        for (Reservation r : due) {
+            ParkingSpot spot = r.getSpot();
+            if (spot == null) continue;
+            if (spot.getStatut() != ParkingSpot.SpotStatus.OCCUPE) {
+                spot.setStatut(ParkingSpot.SpotStatus.OCCUPE);
+                spotRepository.save(spot);
+            }
+        }
     }
 
     @Scheduled(fixedDelay = 60_000)
@@ -173,7 +235,11 @@ public class ReservationService {
                 spotRepository.save(spot);
             }
             r.setStatut(Reservation.ReservationStatus.TERMINE);
-            reservationRepository.save(r);
+            Reservation saved = reservationRepository.save(r);
+            ReservationEventPublisher publisher = reservationEventPublisher.getIfAvailable();
+            if (publisher != null) {
+                publisher.publish("RESERVATION_TERMINATED", saved.getId(), spot != null ? spot.getId() : null, saved.getDateDebut(), saved.getDateFin());
+            }
         }
     }
 }

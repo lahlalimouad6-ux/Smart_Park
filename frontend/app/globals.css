@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f4ef;
+  --foreground: #0b1220;
+  --card: #fffdf9;
+  --muted: #516173;
+  --border: rgba(11, 18, 32, 0.16);
+  --brand: #2563eb;
+  --brand-2: #22c55e;
+  --danger: #ef4444;
+  --radius: 20px;
+  --shadow: 0 22px 70px rgba(11, 18, 32, 0.10);
+  --shadow-hard: 0 10px 0 rgba(11, 18, 32, 0.08);
 }
 
 @theme inline {
@@ -14,8 +23,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #070a10;
+    --foreground: #eef2ff;
+    --card: #0c1220;
+    --muted: rgba(238, 242, 255, 0.70);
+    --border: rgba(238, 242, 255, 0.12);
+    --shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
+    --shadow-hard: 0 10px 0 rgba(0, 0, 0, 0.40);
   }
 }
 
@@ -23,4 +37,179 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.sp-bg {
+  background:
+    radial-gradient(1000px 520px at 10% -10%, rgba(37, 99, 235, 0.18) 0%, rgba(37, 99, 235, 0.00) 62%),
+    radial-gradient(900px 520px at 92% 0%, rgba(34, 197, 94, 0.14) 0%, rgba(34, 197, 94, 0.00) 64%),
+    linear-gradient(180deg, rgba(255, 253, 249, 0.85) 0%, rgba(255, 253, 249, 0.00) 40%),
+    var(--background);
+}
+
+.sp-grid {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(11, 18, 32, 0.08) 1px, rgba(0, 0, 0, 0) 0),
+    radial-gradient(600px 220px at 50% 18%, rgba(11, 18, 32, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
+  background-size: 32px 32px, auto;
+}
+
+.sp-container {
+  width: 100%;
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.sp-card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hard), var(--shadow);
+}
+
+.sp-panel {
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(11, 18, 32, 0.08);
+}
+
+.sp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  color: var(--foreground);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.sp-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(11, 18, 32, 0.10);
+}
+
+.sp-btn-primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+  color: white;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.18), 0 10px 0 rgba(11, 18, 32, 0.10);
+}
+
+.sp-btn-danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.10);
+  color: #991b1b;
+}
+
+.sp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  color: color-mix(in srgb, var(--foreground) 74%, transparent);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.sp-ticket {
+  position: relative;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 94%, transparent) 0%, var(--card) 100%);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hard), var(--shadow);
+  overflow: hidden;
+}
+
+.sp-ticket::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.14) 0%, rgba(34, 197, 94, 0.10) 55%, rgba(168, 85, 247, 0.00) 100%);
+  pointer-events: none;
+}
+
+.sp-divider {
+  border-top: 1px dashed color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+
+.sp-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.sp-table thead {
+  background: color-mix(in srgb, var(--card) 86%, transparent);
+}
+
+.sp-table th {
+  padding: 14px 18px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--foreground) 56%, transparent);
+  font-weight: 800;
+  border-bottom: 2px solid var(--border);
+}
+
+.sp-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  vertical-align: top;
+}
+
+.sp-table tbody tr:hover {
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
+}
+
+.sp-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  border: 2px solid var(--border);
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  color: color-mix(in srgb, var(--foreground) 72%, transparent);
+}
+
+.sp-badge-success {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.12);
+  color: #166534;
+}
+
+.sp-badge-warn {
+  border-color: rgba(249, 115, 22, 0.28);
+  background: rgba(249, 115, 22, 0.12);
+  color: #9a3412;
+}
+
+.sp-badge-info {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(37, 99, 235, 0.12);
+  color: #1e40af;
+}
+
+.sp-badge-muted {
+  border-color: rgba(100, 116, 139, 0.30);
+  background: rgba(100, 116, 139, 0.10);
+  color: #334155;
 }

@@ -27,6 +27,7 @@ export interface ParkingSpot {
   coordX: number;
   coordY: number;
   statut: 'LIBRE' | 'OCCUPE' | 'RESERVE';
+  nextReservationStart?: string | null;
 }
 
 export interface Reservation {

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "parking_spots")
 public class ParkingSpot {
@@ -30,6 +32,9 @@ public class ParkingSpot {
     @JoinColumn(name = "zone_id")
     @JsonIgnore
     private Zone zone;
+
+    @Transient
+    private LocalDateTime nextReservationStart;
 
     public ParkingSpot() {}
 
@@ -62,4 +67,7 @@ public class ParkingSpot {
 
     public Zone getZone() { return zone; }
     public void setZone(Zone zone) { this.zone = zone; }
+
+    public LocalDateTime getNextReservationStart() { return nextReservationStart; }
+    public void setNextReservationStart(LocalDateTime nextReservationStart) { this.nextReservationStart = nextReservationStart; }
 }

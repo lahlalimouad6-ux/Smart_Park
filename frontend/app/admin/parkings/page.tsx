@@ -227,43 +227,49 @@ export default function AdminParkingsPage() {
       .map((s) => ({ spotId: s.spotId, numeroPlace: s.numeroPlace, x: s.x as number, y: s.y as number, w: s.w as number, h: s.h as number }));
   }, [cameraDetail]);
 
-  if (loading) return <div className="p-8 text-center">Chargement...</div>;
+  if (loading) {
+    return (
+      <div className="mx-auto w-full max-w-[1480px] px-6 py-10">
+        <div className="sp-card p-10 text-center text-slate-600">Chargement...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="mx-auto w-full max-w-[1480px] px-6 py-10">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           <button
             onClick={() => router.push('/admin')}
-            className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-gray-200 transition"
+            className="sp-btn"
           >
-            <ChevronLeft className="h-5 w-5 text-gray-700" />
+            <ChevronLeft className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Parkings (Admin)</h1>
-            <p className="text-gray-500">Gestion + monitoring caméra (dataset)</p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Parkings</h1>
+            <p className="text-slate-600">Gestion + monitoring caméra (dataset)</p>
           </div>
         </div>
         <button
           onClick={() => void fetchAll()}
-          className="bg-white hover:bg-gray-50 text-gray-900 px-5 py-3 rounded-xl font-bold border border-gray-200 transition flex items-center"
+          className="sp-btn"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           Actualiser
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-6">
+        <div className="sp-ticket">
+          <div className="p-5 border-b-2 border-[rgba(11,18,32,0.16)] flex items-center gap-3">
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Rechercher parking..."
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-full px-4 py-2.5 rounded-2xl border-2 border-[rgba(11,18,32,0.16)] focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[color:var(--card)] text-slate-900"
             />
           </div>
-          <div className="max-h-[70vh] overflow-y-auto divide-y divide-gray-100">
+          <div className="max-h-[70vh] overflow-y-auto divide-y divide-[rgba(11,18,32,0.10)]">
             {filteredParkings.map((p) => {
               const cam = cameraByParkingId.get(p.id);
               return (
@@ -271,16 +277,16 @@ export default function AdminParkingsPage() {
                   key={p.id}
                   onClick={() => setSelectedParkingId(p.id)}
                   className={clsx(
-                    'w-full text-left p-4 hover:bg-gray-50 transition flex items-center justify-between',
-                    selectedParkingId === p.id ? 'bg-blue-50' : 'bg-white'
+                    'w-full text-left p-4 transition flex items-center justify-between',
+                    selectedParkingId === p.id ? 'bg-blue-50/60' : 'bg-transparent hover:bg-[rgba(37,99,235,0.06)]'
                   )}
                 >
                   <div>
-                    <div className="font-bold text-gray-900">{p.nom}</div>
-                    <div className="text-xs text-gray-500">{p.ville} • {p.adresse}</div>
+                    <div className="font-extrabold text-slate-900">{p.nom}</div>
+                    <div className="text-xs text-slate-600">{p.ville} • {p.adresse}</div>
                   </div>
                   {cam ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                    <span className="sp-badge sp-badge-info">
                       <Video className="h-3 w-3 mr-1" />
                       Caméra
                     </span>
@@ -289,35 +295,35 @@ export default function AdminParkingsPage() {
               );
             })}
             {filteredParkings.length === 0 && (
-              <div className="p-8 text-center text-gray-400">Aucun parking</div>
+              <div className="p-10 text-center text-slate-500">Aucun parking</div>
             )}
           </div>
         </div>
 
-        <div className="lg:col-span-2">
+        <div>
           {!selectedParking ? (
-            <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center text-gray-500">
+            <div className="sp-card border-dashed p-10 text-center text-slate-600">
               Sélectionne un parking à gauche.
             </div>
           ) : selectedCamera && cameraDetail ? (
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-start justify-between gap-4 flex-wrap">
+              <div className="sp-ticket p-5 flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="text-xl font-extrabold text-gray-900">{selectedParking.nom}</div>
-                  <div className="text-sm text-gray-500">Vidéo : {cameraDetail.videoFile}</div>
+                  <div className="text-xl font-extrabold text-slate-900">{selectedParking.nom}</div>
+                  <div className="text-sm text-slate-600">Vidéo : {cameraDetail.videoFile}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <div className="sp-card p-5">
                 <div className="flex items-center gap-4 flex-wrap mb-4">
-                  <div className="ml-auto text-sm text-gray-500">
+                  <div className="ml-auto text-sm text-slate-600">
                     Places configurées : {configuredRegions.length}
                   </div>
                 </div>
 
-                <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-black">
+                <div className="relative w-full overflow-hidden rounded-2xl border-2 border-[rgba(11,18,32,0.16)] bg-black">
                   <video
                     ref={videoRef}
                     src={videoUrl || undefined}
@@ -367,25 +373,25 @@ export default function AdminParkingsPage() {
                   </div>
                 </div>
                 {videoError && (
-                  <div className="mt-3 text-sm text-red-600 font-bold">
+                  <div className="mt-3 text-sm text-red-700 font-extrabold">
                     Erreur de lecture vidéo. Vérifie le fichier MP4 dans le dossier datasets et le token admin.
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-600">
-              <div className="font-extrabold text-gray-900 mb-1">{selectedParking.nom}</div>
+            <div className="sp-card p-8 text-center text-slate-700">
+              <div className="font-extrabold text-slate-900 mb-1">{selectedParking.nom}</div>
               {selectedCamera ? (
                 cameraLoading ? (
-                  <div className="text-gray-500">Chargement de la caméra...</div>
+                  <div className="text-slate-600">Chargement de la caméra...</div>
                 ) : cameraError ? (
-                  <div className="text-gray-500">{cameraError}</div>
+                  <div className="text-slate-600">{cameraError}</div>
                 ) : (
-                  <div className="text-gray-500">Chargement de la caméra...</div>
+                  <div className="text-slate-600">Chargement de la caméra...</div>
                 )
               ) : (
-                <div className="text-gray-500">Ce parking n&apos;a pas de vidéo caméra dans le dataset.</div>
+                <div className="text-slate-600">Ce parking n&apos;a pas de vidéo caméra dans le dataset.</div>
               )}
             </div>
           )}
