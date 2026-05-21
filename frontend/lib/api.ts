@@ -1,7 +1,17 @@
 import axios, { AxiosHeaders } from 'axios';
 
+const resolvedBackendOrigin = (() => {
+  const env = process.env.NEXT_PUBLIC_BACKEND_ORIGIN;
+  if (typeof env === 'string' && env.trim().length > 0) return env.trim().replace(/\/$/, '');
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host && host !== 'localhost' && host !== '127.0.0.1') return `http://${host}:8080`;
+  }
+  return 'http://localhost:8080';
+})();
+
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: `${resolvedBackendOrigin}/api`,
 });
 
 api.interceptors.request.use((config) => {
